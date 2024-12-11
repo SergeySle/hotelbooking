@@ -65,12 +65,12 @@ type BookingSlot struct {
 }
 
 type AvailabilityData struct {
-	Quota   int
-	BookIds *util.Set[BookingId]
+	Quota      int
+	BookingIds *util.Set[BookingId]
 }
 
 func NewAvailabilityData(quota int) AvailabilityData {
-	return AvailabilityData{Quota: quota, BookIds: util.NewSet[BookingId](quota)}
+	return AvailabilityData{Quota: quota, BookingIds: util.NewSet[BookingId](quota)}
 }
 
 type AvailabilityManager interface {
@@ -106,7 +106,7 @@ func (ami *availabilityManagerInMemory) isAvailable(request BookingRequest) erro
 		slot := BookingSlot{request.HotelId, request.RoomId, dayToBook}
 
 		availability, found := ami.availabilityStorage[slot]
-		if !found || availability.Quota-availability.BookIds.Size() < 1 {
+		if !found || availability.Quota-availability.BookingIds.Size() < 1 {
 			continue
 		}
 
@@ -139,7 +139,7 @@ func (ami *availabilityManagerInMemory) UpdateAvailability(request BookingReques
 		if !found {
 			return errors.New("No availability data found")
 		}
-		availabilityData.BookIds.Add(request.BookingId)
+		availabilityData.BookingIds.Add(request.BookingId)
 
 		ami.availabilityStorage[slot] = availabilityData
 	}
