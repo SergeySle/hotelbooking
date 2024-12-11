@@ -1,27 +1,31 @@
-package main
+package worker
 
 import (
+	"applicationDesignTest/book"
+	"applicationDesignTest/orders"
 	"context"
 	"errors"
 	"sync"
+	"time"
 )
 
 type UnprocessedOrderIterator interface {
-	GetNextUnprocessedBooking(ctx context.Context) (*Order, error)
+	GetNextUnprocessedBooking(ctx context.Context) (*orders.Order, error)
 }
 
 type unprocessedOrderIterator struct {
-	orderStorage FirstUnprocessedOrderProvider
+	orderStorage orders.FirstUnprocessedOrderProvider
 }
 
-func NewUnprocessedOrderIterator(orderStorage FirstUnprocessedOrderProvider) UnprocessedOrderIterator {
+func NewUnprocessedOrderIterator(orderStorage orders.FirstUnprocessedOrderProvider) UnprocessedOrderIterator {
 	return &unprocessedOrderIterator{orderStorage}
 }
 
-func (uoi *unprocessedOrderIterator) GetNextUnprocessedBooking(ctx context.Context) (*Order, error) {
+func (uoi *unprocessedOrderIterator) GetNextUnprocessedBooking(ctx context.Context) (*orders.Order, error) {
 	for {
 		order, err := uoi.orderStorage.GetFirstUnprocessedOrder(ctx)
-		if errors.Is(err, OrderNotFoundError) {
+		if errors.Is(err, orders.OrderNotFoundError) {
+			time.Sleep(time.Second)
 			continue
 		}
 		if err != nil {
@@ -65,19 +69,19 @@ func (op *worker) ProcessOrders(ctx context.Context, wg *sync.WaitGroup) error {
 }
 
 type OrderProcessor interface {
-	ProcessOrder(ctx context.Context, order *Order) error
+	ProcessOrder(ctx context.Context, order *orders.Order) error
 }
 
 type orderProcessor struct {
-	roomBooker   RoomBooker
-	orderUpdater OrderUpdater
+	roomBooker   book.RoomBooker
+	orderUpdater orders.OrderUpdater
 }
 
-func NewOrderProcessor(roomBooker RoomBooker, orderUpdater OrderUpdater) OrderProcessor {
+func NewOrderProcessor(roomBooker book.RoomBooker, orderUpdater orders.OrderUpdater) OrderProcessor {
 	return &orderProcessor{roomBooker: roomBooker, orderUpdater: orderUpdater}
 }
 
-func (op *orderProcessor) ProcessOrder(ctx context.Context, order *Order) error {
+func (op *orderProcessor) ProcessOrder(ctx context.Context, order *orders.Order) error {
 	if err := op.roomBooker.Book(order); err != nil {
 		return err
 	}

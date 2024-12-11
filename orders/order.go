@@ -1,6 +1,7 @@
-package main
+package orders
 
 import (
+	"applicationDesignTest/availability"
 	"context"
 	"errors"
 	"fmt"
@@ -8,18 +9,18 @@ import (
 )
 
 type OrderDto struct {
-	HotelID   string    `json:"hotel_id"`
-	RoomID    string    `json:"room_id"`
-	UserEmail string    `json:"email"`
-	From      time.Time `json:"from"`
-	To        time.Time `json:"to"`
+	HotelID   availability.HotelId
+	RoomID    availability.RoomId
+	UserEmail string
+	From      time.Time
+	To        time.Time
 }
 
 type Order struct {
-	ID OrderId `json:"id"`
+	ID OrderId
 	*OrderDto
-	Processed bool `json:"processed"`
-	Success   bool `json:"success"`
+	Processed bool
+	Success   bool
 }
 
 type OrderId uint

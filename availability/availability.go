@@ -1,6 +1,7 @@
-package main
+package availability
 
 import (
+	"applicationDesignTest/util"
 	"errors"
 	"fmt"
 	"sync"
@@ -12,14 +13,14 @@ type RoomId string
 type BookingId uint
 
 type RoomAvailability struct {
-	HotelID string    `json:"hotel_id"`
-	RoomID  string    `json:"room_id"`
-	Date    time.Time `json:"date"`
-	Quota   int       `json:"quota"`
+	HotelID string
+	RoomID  string
+	Date    time.Time
+	Quota   int
 }
 
 type BookingRequest struct {
-	BookId    BookingId `json:"reservation_id"`
+	BookId    BookingId
 	HotelId   HotelId
 	RoomId    RoomId
 	DateRange []time.Time
@@ -65,11 +66,11 @@ type BookingSlot struct {
 
 type AvailabilityData struct {
 	Quota   int
-	BookIds *Set[BookingId]
+	BookIds *util.Set[BookingId]
 }
 
 func NewAvailabilityData(quota int) AvailabilityData {
-	return AvailabilityData{Quota: quota, BookIds: NewSet[BookingId](quota)}
+	return AvailabilityData{Quota: quota, BookIds: util.NewSet[BookingId](quota)}
 }
 
 type AvailabilityManager interface {
@@ -78,11 +79,11 @@ type AvailabilityManager interface {
 
 type availabilityManagerInMemory struct {
 	availabilityStorage map[BookingSlot]AvailabilityData
-	logger              Logger
+	logger              util.Logger
 	mu                  sync.RWMutex
 }
 
-func NewAvailabilityManagerInMemory(data []RoomAvailability, logger Logger) AvailabilityManager {
+func NewAvailabilityManagerInMemory(data []RoomAvailability, logger util.Logger) AvailabilityManager {
 	m := make(map[BookingSlot]AvailabilityData, len(data))
 
 	for _, roomAvailability := range data {
@@ -114,10 +115,10 @@ func (ami *availabilityManagerInMemory) isAvailable(request BookingRequest) erro
 	ami.mu.RUnlock()
 
 	if len(unavailableDays) != 0 {
-		err := ami.logger.Log(Error,
+		err := ami.logger.Log(util.Error,
 			fmt.Sprintf("Hotel room is not available for selected dates"),
-			LogEnv{"request", request},
-			LogEnv{"unavailable days", unavailableDays},
+			util.LogEnv{"request", request},
+			util.LogEnv{"unavailable days", unavailableDays},
 		)
 		if err != nil {
 			return fmt.Errorf("logger error: %w", err)

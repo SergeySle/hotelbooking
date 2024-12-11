@@ -1,36 +1,38 @@
-package main
+package book
 
 import (
+	"applicationDesignTest/availability"
+	"applicationDesignTest/orders"
 	"fmt"
 	"time"
 )
 
 type Booking struct {
-	ID        uint      `json:"id"`
-	HotelID   string    `json:"hotel_id"`
-	RoomID    string    `json:"room_id"`
-	UserEmail string    `json:"email"`
-	From      time.Time `json:"from"`
-	To        time.Time `json:"to"`
+	ID        uint
+	HotelID   string
+	RoomID    string
+	UserEmail string
+	From      time.Time
+	To        time.Time
 }
 
 type RoomBooker interface {
-	Book(order *Order) error
+	Book(order *orders.Order) error
 }
 
 type roomBooker struct {
-	availabilityManager AvailabilityManager
+	availabilityManager availability.AvailabilityManager
 }
 
-func NewRoomBooker(availabilityManager AvailabilityManager) RoomBooker {
+func NewRoomBooker(availabilityManager availability.AvailabilityManager) RoomBooker {
 	return &roomBooker{availabilityManager}
 }
 
-func (rr *roomBooker) Book(order *Order) error {
+func (rr *roomBooker) Book(order *orders.Order) error {
 	daysToBook := daysBetween(order.From, order.To)
 
 	err := rr.availabilityManager.UpdateAvailability(
-		BookingRequest{BookingId(order.ID), HotelId(order.HotelID), RoomId(order.RoomID), daysToBook},
+		availability.BookingRequest{availability.BookingId(order.ID), availability.HotelId(order.HotelID), availability.RoomId(order.RoomID), daysToBook},
 	)
 	if err != nil {
 		return fmt.Errorf("Can't book a room: %w", err)

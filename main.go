@@ -10,6 +10,11 @@
 package main
 
 import (
+	"applicationDesignTest/availability"
+	"applicationDesignTest/book"
+	"applicationDesignTest/orders"
+	"applicationDesignTest/util"
+	"applicationDesignTest/worker"
 	"context"
 	"encoding/json"
 	"errors"
@@ -22,46 +27,49 @@ import (
 
 const InitialOrderCapacity = 1000
 
-type Order2 struct {
+type Order struct {
 	ID        uint      `json:"id"`
 	HotelID   string    `json:"hotel_id"`
 	RoomID    string    `json:"room_id"`
 	UserEmail string    `json:"email"`
 	From      time.Time `json:"from"`
 	To        time.Time `json:"to"`
+	Processed bool      `json:"processed"`
+	Success   bool      `json:"success"`
 }
 
 func main() {
 	ctx := context.Background()
-	logger := NewLogger()
+	logger := util.NewLogger()
 
-	orderStorage := NewOrderStorage(make([]*Order, InitialOrderCapacity))
-	orderCreator := NewOrderCreator(orderStorage)
+	orderStorage := orders.NewOrderStorage(make([]*orders.Order, InitialOrderCapacity))
+	orderCreator := orders.NewOrderCreator(orderStorage)
 	orderController := NewOrderController(orderCreator)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/orders", orderController.CreateOrderMethod)
+	// todo method GET /orders/{id}
 
-	logger.Log(Info, "Server listening on localhost:8080")
+	logger.Log(util.Info, "Server listening on localhost:8080")
 	err := http.ListenAndServe(":8080", mux)
 	if errors.Is(err, http.ErrServerClosed) {
-		logger.Log(Info, "Server closed")
+		logger.Log(util.Info, "Server closed")
 	} else if err != nil {
-		logger.Log(Error, fmt.Sprintf("Server failed: %s", err))
+		logger.Log(util.Error, fmt.Sprintf("Server failed: %s", err))
 		os.Exit(1)
 	}
 
-	var availability = []RoomAvailability{
+	var availabilityData = []availability.RoomAvailability{
 		{"reddison", "lux", date(2024, 1, 1), 1},
 		{"reddison", "lux", date(2024, 1, 2), 1},
 		{"reddison", "lux", date(2024, 1, 3), 1},
 		{"reddison", "lux", date(2024, 1, 4), 1},
 		{"reddison", "lux", date(2024, 1, 5), 0},
 	}
-	availabilityManager := NewAvailabilityManagerInMemory(availability, logger)
-	roomBooker := NewRoomBooker(availabilityManager)
-	unprocessedOrderIterator := NewUnprocessedOrderIterator(orderStorage)
-	orderProcessor := NewOrderProcessor(roomBooker, orderStorage)
-	worker := NewWorker(orderProcessor, unprocessedOrderIterator)
+	availabilityManager := availability.NewAvailabilityManagerInMemory(availabilityData, logger)
+	roomBooker := book.NewRoomBooker(availabilityManager)
+	unprocessedOrderIterator := worker.NewUnprocessedOrderIterator(orderStorage)
+	orderProcessor := worker.NewOrderProcessor(roomBooker, orderStorage)
+	worker := worker.NewWorker(orderProcessor, unprocessedOrderIterator)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -70,21 +78,32 @@ func main() {
 }
 
 type OrderController struct {
-	orderCreator OrderCreator
+	orderCreator orders.OrderCreator
 }
 
-func NewOrderController(orderCreator OrderCreator) *OrderController {
+func NewOrderController(orderCreator orders.OrderCreator) *OrderController {
 	return &OrderController{orderCreator}
 }
 
 func (oc *OrderController) CreateOrderMethod(w http.ResponseWriter, r *http.Request) {
-	var newOrder OrderDto
+	var newOrder orders.OrderDto
 	json.NewDecoder(r.Body).Decode(&newOrder)
 
-	order, err := oc.orderCreator.CreateOrder(r.Context(), &newOrder)
+	orderDto, err := oc.orderCreator.CreateOrder(r.Context(), &newOrder)
 	if err != nil {
 		http.Error(w, "Hotel room is not available for selected dates", http.StatusInternalServerError)
 		return
+	}
+
+	order := &Order{
+		ID:        uint(orderDto.ID),
+		HotelID:   string(orderDto.HotelID),
+		RoomID:    string(orderDto.RoomID),
+		UserEmail: orderDto.UserEmail,
+		From:      orderDto.From,
+		To:        orderDto.To,
+		Processed: orderDto.Processed,
+		Success:   orderDto.Success,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
