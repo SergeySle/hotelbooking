@@ -53,7 +53,7 @@ func daysBetween(from time.Time, to time.Time) []time.Time {
 	}
 
 	days := make([]time.Time, 0)
-	for d := toDay(from); !d.After(toDay(to)); d = d.AddDate(0, 0, 1) {
+	for d := toDay(from); !d.After(toDay(to)) && !d.Equal(toDay(to)); d = d.AddDate(0, 0, 1) {
 		days = append(days, d)
 	}
 
