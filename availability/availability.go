@@ -115,14 +115,11 @@ func (ami *availabilityManagerInMemory) isAvailable(request BookingRequest) erro
 	ami.mu.RUnlock()
 
 	if len(unavailableDays) != 0 {
-		err := ami.logger.Log(util.Error,
+		ami.logger.Log(util.Error,
 			fmt.Sprintf("Hotel room is not available for selected dates"),
 			util.LogEnv{"request", request},
 			util.LogEnv{"unavailable days", unavailableDays},
 		)
-		if err != nil {
-			return fmt.Errorf("logger error: %w", err)
-		}
 
 		return errors.New("Hotel room is not available for selected dates")
 	}
