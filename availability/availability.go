@@ -129,7 +129,7 @@ func (ami *availabilityManagerInMemory) isAvailable(request BookingRequest) erro
 
 func (ami *availabilityManagerInMemory) UpdateAvailability(request BookingRequest) error {
 	if err := ami.isAvailable(request); err != nil {
-		return fmt.Errorf("Can't book a room: %w", err)
+		return fmt.Errorf("Can't booking a room: %w", err)
 	}
 
 	ami.mu.Lock()

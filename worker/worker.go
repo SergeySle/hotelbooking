@@ -1,13 +1,12 @@
 package worker
 
 import (
-	"applicationDesignTest/book"
+	"applicationDesignTest/booking"
 	"applicationDesignTest/orders"
 	"applicationDesignTest/util"
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 )
 
@@ -39,43 +38,42 @@ func (uoi *unprocessedOrderIterator) GetNextUnprocessedBooking(ctx context.Conte
 }
 
 type Worker interface {
-	Work(ctx context.Context, wg *sync.WaitGroup) error
+	Work(ctx context.Context)
 }
 
 type worker struct {
 	unprocessedOrderIterator UnprocessedOrderIterator
-	orderProcessor           book.OrderProcessor
+	orderProcessor           booking.OrderProcessor
 	logger                   util.Logger
 }
 
-func NewWorker(orderProcessor book.OrderProcessor, orderIterator UnprocessedOrderIterator, logger util.Logger) Worker {
+func NewWorker(orderProcessor booking.OrderProcessor, orderIterator UnprocessedOrderIterator, logger util.Logger) Worker {
 	return &worker{orderProcessor: orderProcessor, unprocessedOrderIterator: orderIterator, logger: logger}
 }
 
-func (op *worker) Work(ctx context.Context, wg *sync.WaitGroup) error {
-	defer func() {
-		wg.Done()
-		op.logger.Log(util.Info, "Worker stopped")
-	}()
+func (op *worker) Work(ctx context.Context) {
+	defer op.logger.Log(util.Info, "Worker stopped")
 
 	op.logger.Log(util.Info, "Worker started working")
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return
 		default:
 			order, err := op.unprocessedOrderIterator.GetNextUnprocessedBooking(ctx)
 			if err != nil {
-				return err
+				op.logger.Log(util.Error, fmt.Sprintf("Failed to get unprocessed order: %v", err))
+				continue
 			}
 
 			err = op.orderProcessor.ProcessOrder(ctx, order)
-			if errors.Is(err, book.RoomUnavailableError) {
+			if errors.Is(err, booking.RoomUnavailableError) {
 				op.logger.Log(util.Info, err.Error(), util.LogEnv{"order", *order})
 				continue
 			}
 			if err != nil {
-				return fmt.Errorf("error processing order: %w", err)
+				op.logger.Log(util.Error, fmt.Sprintf("Failed to process order: %v", err))
+				continue
 			}
 		}
 	}

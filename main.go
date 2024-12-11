@@ -11,7 +11,7 @@ package main
 
 import (
 	"applicationDesignTest/availability"
-	"applicationDesignTest/book"
+	"applicationDesignTest/booking"
 	"applicationDesignTest/controller"
 	"applicationDesignTest/orders"
 	"applicationDesignTest/routing"
@@ -51,14 +51,17 @@ func main() {
 	router.Route(r)
 
 	availabilityManager := availability.NewAvailabilityManagerInMemory(availabilityData, logger)
-	roomBooker := book.NewRoomBooker(availabilityManager, logger)
+	roomBooker := booking.NewRoomBooker(availabilityManager, logger)
 	unprocessedOrderIterator := worker.NewUnprocessedOrderIterator(orderStorage)
-	orderProcessor := book.NewOrderProcessor(roomBooker, orderStorage)
+	orderProcessor := booking.NewOrderProcessor(roomBooker, orderStorage)
 	worker := worker.NewWorker(orderProcessor, unprocessedOrderIterator, logger)
 
-	wg := &sync.WaitGroup{}
+	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go worker.Work(ctx, wg)
+	go func() {
+		defer wg.Done()
+		worker.Work(ctx)
+	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

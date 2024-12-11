@@ -1,4 +1,4 @@
-package book
+package booking
 
 import (
 	"applicationDesignTest/orders"
