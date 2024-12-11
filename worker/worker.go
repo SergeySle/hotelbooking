@@ -3,8 +3,10 @@ package worker
 import (
 	"applicationDesignTest/book"
 	"applicationDesignTest/orders"
+	"applicationDesignTest/util"
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -43,14 +45,20 @@ type Worker interface {
 type worker struct {
 	unprocessedOrderIterator UnprocessedOrderIterator
 	orderProcessor           OrderProcessor
+	logger                   util.Logger
 }
 
-func NewWorker(orderProcessor OrderProcessor, orderIterator UnprocessedOrderIterator) Worker {
-	return &worker{orderProcessor: orderProcessor, unprocessedOrderIterator: orderIterator}
+func NewWorker(orderProcessor OrderProcessor, orderIterator UnprocessedOrderIterator, logger util.Logger) Worker {
+	return &worker{orderProcessor: orderProcessor, unprocessedOrderIterator: orderIterator, logger: logger}
 }
 
 func (op *worker) Work(ctx context.Context, wg *sync.WaitGroup) error {
-	defer wg.Done()
+	defer func() {
+		wg.Done()
+		op.logger.Log(util.Info, "Worker stopped")
+	}()
+
+	op.logger.Log(util.Info, "Worker started working")
 	for {
 		select {
 		case <-ctx.Done():
@@ -61,8 +69,13 @@ func (op *worker) Work(ctx context.Context, wg *sync.WaitGroup) error {
 				return err
 			}
 
-			if err := op.orderProcessor.ProcessOrder(ctx, order); err != nil {
-				return err
+			err = op.orderProcessor.ProcessOrder(ctx, order)
+			if errors.Is(err, book.RoomUnavailableError) {
+				op.logger.Log(util.Info, err.Error(), util.LogEnv{"order", *order})
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("error processing order: %w", err)
 			}
 		}
 	}
@@ -82,9 +95,14 @@ func NewOrderProcessor(roomBooker book.RoomBooker, orderUpdater orders.OrderUpda
 }
 
 func (op *orderProcessor) ProcessOrder(ctx context.Context, order *orders.Order) error {
-	if err := op.roomBooker.Book(order); err != nil {
-		return err
+	err := op.roomBooker.Book(order)
+	if errors.Is(err, book.RoomUnavailableError) {
+		return book.RoomUnavailableError
 	}
+	if err != nil {
+		return fmt.Errorf("error when booking a room: %w", err)
+	}
+
 	if _, err := op.orderUpdater.SetProcessed(ctx, order.ID, true); err != nil {
 		return err
 	}

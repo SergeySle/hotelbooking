@@ -54,6 +54,24 @@ func NewOrder(order *orders.Order) *Order {
 	}
 }
 
+type OrderRequest struct {
+	HotelID   availability.HotelId `json:"hotel_id"`
+	RoomID    availability.RoomId  `json:"room_id"`
+	UserEmail string               `json:"user_email"`
+	From      time.Time            `json:"from"`
+	To        time.Time            `json:"to"`
+}
+
+func (o OrderRequest) ToOrderData() *orders.OrderData {
+	return &orders.OrderData{
+		HotelID:   o.HotelID,
+		RoomID:    o.RoomID,
+		UserEmail: o.UserEmail,
+		From:      o.From,
+		To:        o.To,
+	}
+}
+
 var availabilityData = []availability.RoomAvailability{
 	{"reddison", "lux", date(2024, 1, 1), 1},
 	{"reddison", "lux", date(2024, 1, 2), 1},
@@ -66,32 +84,36 @@ func main() {
 	ctx := context.Background()
 	logger := util.NewLogger(log.Default())
 
-	orderStorage := orders.NewOrderStorage(make([]*orders.Order, InitialOrderCapacity))
+	orderStorage := orders.NewOrderStorage(make([]*orders.Order, 0, InitialOrderCapacity))
 	orderCreator := orders.NewOrderCreator(orderStorage)
 	orderController := NewOrderController(orderCreator, orderStorage)
 
 	r := chi.NewRouter()
-	r.Post("/orders", orderController.CreateOrderMethod)
+	r.Post("/orders", orderController.CreateOrder)
 	r.Get("/orders/{id}", orderController.GetOrder)
 
-	logger.Log(util.Info, "Server listening on localhost:8080")
-	err := http.ListenAndServe(":8080", r)
-	if errors.Is(err, http.ErrServerClosed) {
-		logger.Log(util.Info, "Server closed")
-	} else if err != nil {
-		logger.Log(util.Error, fmt.Sprintf("Server failed: %s", err))
-		os.Exit(1)
-	}
-
 	availabilityManager := availability.NewAvailabilityManagerInMemory(availabilityData, logger)
-	roomBooker := book.NewRoomBooker(availabilityManager)
+	roomBooker := book.NewRoomBooker(availabilityManager, logger)
 	unprocessedOrderIterator := worker.NewUnprocessedOrderIterator(orderStorage)
 	orderProcessor := worker.NewOrderProcessor(roomBooker, orderStorage)
-	worker := worker.NewWorker(orderProcessor, unprocessedOrderIterator)
+	worker := worker.NewWorker(orderProcessor, unprocessedOrderIterator, logger)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go worker.Work(ctx, wg)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		logger.Log(util.Info, "Server listening on localhost:8080")
+		err := http.ListenAndServe(":8080", r)
+		if errors.Is(err, http.ErrServerClosed) {
+			logger.Log(util.Info, "Server closed")
+		} else if err != nil {
+			logger.Log(util.Error, fmt.Sprintf("Server failed: %s", err))
+			os.Exit(1)
+		}
+	}()
 	wg.Wait()
 }
 
@@ -123,11 +145,11 @@ func (oc *OrderController) GetOrder(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(order)
 }
 
-func (oc *OrderController) CreateOrderMethod(w http.ResponseWriter, r *http.Request) {
-	var newOrder orders.OrderData
+func (oc *OrderController) CreateOrder(w http.ResponseWriter, r *http.Request) {
+	var newOrder OrderRequest
 	json.NewDecoder(r.Body).Decode(&newOrder)
 
-	orderDto, err := oc.orderCreator.CreateOrder(r.Context(), &newOrder)
+	orderDto, err := oc.orderCreator.CreateOrder(r.Context(), newOrder.ToOrderData())
 	if err != nil {
 		http.Error(w, "Hotel room is not available for selected dates", http.StatusInternalServerError)
 		return

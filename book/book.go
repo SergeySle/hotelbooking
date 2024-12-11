@@ -3,6 +3,8 @@ package book
 import (
 	"applicationDesignTest/availability"
 	"applicationDesignTest/orders"
+	"applicationDesignTest/util"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -16,16 +18,19 @@ type Booking struct {
 	To        time.Time
 }
 
+var RoomUnavailableError = errors.New("room is unavailable")
+
 type RoomBooker interface {
 	Book(order *orders.Order) error
 }
 
 type roomBooker struct {
+	logger              util.Logger
 	availabilityManager availability.AvailabilityManager
 }
 
-func NewRoomBooker(availabilityManager availability.AvailabilityManager) RoomBooker {
-	return &roomBooker{availabilityManager}
+func NewRoomBooker(availabilityManager availability.AvailabilityManager, logger util.Logger) RoomBooker {
+	return &roomBooker{logger, availabilityManager}
 }
 
 func (rr *roomBooker) Book(order *orders.Order) error {
@@ -35,7 +40,8 @@ func (rr *roomBooker) Book(order *orders.Order) error {
 		availability.BookingRequest{availability.BookingId(order.ID), availability.HotelId(order.HotelID), availability.RoomId(order.RoomID), daysToBook},
 	)
 	if err != nil {
-		return fmt.Errorf("Can't book a room: %w", err)
+		rr.logger.Log(util.Info, fmt.Sprintf("Can't book a room: %w", err))
+		return RoomUnavailableError
 	}
 
 	return nil
