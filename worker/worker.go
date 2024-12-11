@@ -97,6 +97,9 @@ func NewOrderProcessor(roomBooker book.RoomBooker, orderUpdater orders.OrderUpda
 func (op *orderProcessor) ProcessOrder(ctx context.Context, order *orders.Order) error {
 	err := op.roomBooker.Book(order)
 	if errors.Is(err, book.RoomUnavailableError) {
+		if _, err := op.orderUpdater.SetProcessed(ctx, order.ID, false); err != nil {
+			return err
+		}
 		return book.RoomUnavailableError
 	}
 	if err != nil {
