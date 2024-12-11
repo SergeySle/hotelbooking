@@ -42,7 +42,7 @@ func main() {
 	ctx := context.Background()
 	logger := util.NewLogger(log.Default())
 
-	orderStorage := orders.NewOrderStorage(make([]*orders.Order, 0, InitialOrderCapacity))
+	orderStorage := orders.NewOrderStorageInMemory(make([]*orders.Order, 0, InitialOrderCapacity))
 	orderCreator := orders.NewOrderCreator(orderStorage)
 	orderController := controller.NewOrderController(orderCreator, orderStorage)
 

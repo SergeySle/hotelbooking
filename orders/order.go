@@ -72,16 +72,16 @@ func (oc *orderCreator) CreateOrder(ctx context.Context, orderData *OrderData) (
 	return order, nil
 }
 
-type orderStorage struct {
+type orderStorageInMemory struct {
 	orders []*Order
 	maxId  uint
 }
 
-func NewOrderStorage(orders []*Order) *orderStorage {
-	return &orderStorage{orders: orders}
+func NewOrderStorageInMemory(orders []*Order) *orderStorageInMemory {
+	return &orderStorageInMemory{orders: orders}
 }
 
-func (s *orderStorage) Persist(ctx context.Context, order *Order) (*Order, error) {
+func (s *orderStorageInMemory) Persist(ctx context.Context, order *Order) (*Order, error) {
 	s.maxId++
 	order.ID = OrderId(s.maxId)
 	s.orders = append(s.orders, order)
@@ -89,7 +89,7 @@ func (s *orderStorage) Persist(ctx context.Context, order *Order) (*Order, error
 	return order, nil
 }
 
-func (s *orderStorage) SetProcessed(ctx context.Context, orderId OrderId, success bool) (*Order, error) {
+func (s *orderStorageInMemory) SetProcessed(ctx context.Context, orderId OrderId, success bool) (*Order, error) {
 	for _, order := range s.orders {
 		if order.ID == orderId {
 			order.Processed = true
@@ -102,7 +102,7 @@ func (s *orderStorage) SetProcessed(ctx context.Context, orderId OrderId, succes
 	return nil, fmt.Errorf("order not found")
 }
 
-func (s *orderStorage) GetFirstUnprocessedOrder(ctx context.Context) (*Order, error) {
+func (s *orderStorageInMemory) GetFirstUnprocessedOrder(ctx context.Context) (*Order, error) {
 	for _, order := range s.orders {
 		if !order.Processed {
 			return order, nil
@@ -112,7 +112,7 @@ func (s *orderStorage) GetFirstUnprocessedOrder(ctx context.Context) (*Order, er
 	return nil, OrderNotFoundError
 }
 
-func (s *orderStorage) GetById(ctx context.Context, orderId OrderId) (*Order, error) {
+func (s *orderStorageInMemory) GetById(ctx context.Context, orderId OrderId) (*Order, error) {
 	for _, order := range s.orders {
 		if order.ID == orderId {
 			return order, nil
