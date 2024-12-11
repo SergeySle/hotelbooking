@@ -57,7 +57,7 @@ func NewOrder(order *orders.Order) *Order {
 type OrderRequest struct {
 	HotelID   availability.HotelId `json:"hotel_id"`
 	RoomID    availability.RoomId  `json:"room_id"`
-	UserEmail string               `json:"user_email"`
+	UserEmail string               `json:"email"`
 	From      time.Time            `json:"from"`
 	To        time.Time            `json:"to"`
 }
