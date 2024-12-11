@@ -3,19 +3,19 @@ package util
 import (
 	"encoding/json"
 	"fmt"
-	"io"
+	"log"
 )
 
 type logger struct {
-	w io.Writer
+	logger *log.Logger
 }
 
 type Logger interface {
 	Log(level LogLevel, msg string, vars ...LogEnv)
 }
 
-func NewLogger(w io.Writer) Logger {
-	return &logger{w}
+func NewLogger(l *log.Logger) Logger {
+	return &logger{l}
 }
 
 type LogEnv struct {
@@ -55,14 +55,13 @@ func (l LogLevel) String() string {
 
 func (l *logger) Log(level LogLevel, msg string, vars ...LogEnv) {
 	logMsg := struct {
-		msg  string
-		vars []LogEnv
+		Msg  string
+		Vars []LogEnv
 	}{
-		msg:  fmt.Sprintf("[%s]: %s", level.String(), msg),
-		vars: vars,
+		Msg:  fmt.Sprintf("[%s]: %s", level.String(), msg),
+		Vars: vars,
 	}
-
 	logJson, _ := json.Marshal(logMsg)
 
-	fmt.Fprintln(l.w, string(logJson))
+	l.logger.Print(string(logJson))
 }

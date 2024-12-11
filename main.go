@@ -19,8 +19,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/go-chi/chi/v5"
+	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -38,19 +41,33 @@ type Order struct {
 	Success   bool      `json:"success"`
 }
 
+func NewOrder(order *orders.Order) *Order {
+	return &Order{
+		ID:        uint(order.ID),
+		HotelID:   string(order.HotelID),
+		RoomID:    string(order.RoomID),
+		UserEmail: order.UserEmail,
+		From:      order.From,
+		To:        order.To,
+		Processed: order.Processed,
+		Success:   order.Success,
+	}
+}
+
 func main() {
 	ctx := context.Background()
-	logger := util.NewLogger(os.Stdout)
+	logger := util.NewLogger(log.Default())
 
 	orderStorage := orders.NewOrderStorage(make([]*orders.Order, InitialOrderCapacity))
 	orderCreator := orders.NewOrderCreator(orderStorage)
-	orderController := NewOrderController(orderCreator)
-	mux := http.NewServeMux()
-	mux.HandleFunc("/orders", orderController.CreateOrderMethod)
-	// todo method GET /orders/{id}
+	orderController := NewOrderController(orderCreator, orderStorage)
+
+	r := chi.NewRouter()
+	r.Post("/orders", orderController.CreateOrderMethod)
+	r.Get("/orders/{id}", orderController.GetOrder)
 
 	logger.Log(util.Info, "Server listening on localhost:8080")
-	err := http.ListenAndServe(":8080", mux)
+	err := http.ListenAndServe(":8080", r)
 	if errors.Is(err, http.ErrServerClosed) {
 		logger.Log(util.Info, "Server closed")
 	} else if err != nil {
@@ -78,15 +95,35 @@ func main() {
 }
 
 type OrderController struct {
-	orderCreator orders.OrderCreator
+	orderCreator  orders.OrderCreator
+	orderProvider orders.OrderProvider
 }
 
-func NewOrderController(orderCreator orders.OrderCreator) *OrderController {
-	return &OrderController{orderCreator}
+func NewOrderController(orderCreator orders.OrderCreator, orderProvider orders.OrderProvider) *OrderController {
+	return &OrderController{orderCreator, orderProvider}
+}
+
+func (oc *OrderController) GetOrder(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	orderDto, err := oc.orderProvider.GetById(r.Context(), orders.OrderId(id))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("can't get order by id: %w", err), http.StatusNotFound)
+		return
+	}
+
+	order := NewOrder(orderDto)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(order)
 }
 
 func (oc *OrderController) CreateOrderMethod(w http.ResponseWriter, r *http.Request) {
-	var newOrder orders.OrderDto
+	var newOrder orders.OrderData
 	json.NewDecoder(r.Body).Decode(&newOrder)
 
 	orderDto, err := oc.orderCreator.CreateOrder(r.Context(), &newOrder)
@@ -95,16 +132,7 @@ func (oc *OrderController) CreateOrderMethod(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	order := &Order{
-		ID:        uint(orderDto.ID),
-		HotelID:   string(orderDto.HotelID),
-		RoomID:    string(orderDto.RoomID),
-		UserEmail: orderDto.UserEmail,
-		From:      orderDto.From,
-		To:        orderDto.To,
-		Processed: orderDto.Processed,
-		Success:   orderDto.Success,
-	}
+	order := NewOrder(orderDto)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

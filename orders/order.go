@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type OrderDto struct {
+type OrderData struct {
 	HotelID   availability.HotelId
 	RoomID    availability.RoomId
 	UserEmail string
@@ -18,7 +18,7 @@ type OrderDto struct {
 
 type Order struct {
 	ID OrderId
-	*OrderDto
+	*OrderData
 	Processed bool
 	Success   bool
 }
@@ -38,13 +38,18 @@ type FirstUnprocessedOrderProvider interface {
 }
 
 type OrderCreator interface {
-	CreateOrder(ctx context.Context, order *OrderDto) (*Order, error)
+	CreateOrder(ctx context.Context, order *OrderData) (*Order, error)
 }
 
 type OrderStorage interface {
 	OrderPersister
 	OrderUpdater
 	FirstUnprocessedOrderProvider
+	OrderProvider
+}
+
+type OrderProvider interface {
+	GetById(ctx context.Context, orderId OrderId) (*Order, error)
 }
 
 var OrderNotFoundError = errors.New("order not found")
@@ -57,8 +62,8 @@ func NewOrderCreator(orderPersister OrderPersister) OrderCreator {
 	return &orderCreator{orderPersister}
 }
 
-func (oc *orderCreator) CreateOrder(ctx context.Context, orderDto *OrderDto) (*Order, error) {
-	order := &Order{OrderDto: orderDto, Processed: false, Success: false}
+func (oc *orderCreator) CreateOrder(ctx context.Context, orderData *OrderData) (*Order, error) {
+	order := &Order{OrderData: orderData, Processed: false, Success: false}
 	order, err := oc.orderPersister.Persist(ctx, order)
 	if err != nil {
 		return nil, fmt.Errorf("could not persist order: %v", err)
@@ -100,6 +105,16 @@ func (s *orderStorage) SetProcessed(ctx context.Context, orderId OrderId, succes
 func (s *orderStorage) GetFirstUnprocessedOrder(ctx context.Context) (*Order, error) {
 	for _, order := range s.orders {
 		if !order.Processed {
+			return order, nil
+		}
+	}
+
+	return nil, OrderNotFoundError
+}
+
+func (s *orderStorage) GetById(ctx context.Context, orderId OrderId) (*Order, error) {
+	for _, order := range s.orders {
+		if order.ID == orderId {
 			return order, nil
 		}
 	}
