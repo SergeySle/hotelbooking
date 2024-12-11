@@ -40,7 +40,7 @@ func (rr *roomBooker) Book(order *orders.Order) error {
 		availability.BookingRequest{availability.BookingId(order.ID), availability.HotelId(order.HotelID), availability.RoomId(order.RoomID), daysToBook},
 	)
 	if err != nil {
-		rr.logger.Log(util.Info, fmt.Sprintf("Can't book a room: %w", err))
+		rr.logger.Log(util.Info, fmt.Sprintf("Can't book a room: %v", err))
 		return RoomUnavailableError
 	}
 
