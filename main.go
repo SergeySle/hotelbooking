@@ -53,7 +53,7 @@ func main() {
 	availabilityManager := availability.NewAvailabilityManagerInMemory(availabilityData, logger)
 	roomBooker := book.NewRoomBooker(availabilityManager, logger)
 	unprocessedOrderIterator := worker.NewUnprocessedOrderIterator(orderStorage)
-	orderProcessor := worker.NewOrderProcessor(roomBooker, orderStorage)
+	orderProcessor := book.NewOrderProcessor(roomBooker, orderStorage)
 	worker := worker.NewWorker(orderProcessor, unprocessedOrderIterator, logger)
 
 	wg := &sync.WaitGroup{}

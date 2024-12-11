@@ -44,11 +44,11 @@ type Worker interface {
 
 type worker struct {
 	unprocessedOrderIterator UnprocessedOrderIterator
-	orderProcessor           OrderProcessor
+	orderProcessor           book.OrderProcessor
 	logger                   util.Logger
 }
 
-func NewWorker(orderProcessor OrderProcessor, orderIterator UnprocessedOrderIterator, logger util.Logger) Worker {
+func NewWorker(orderProcessor book.OrderProcessor, orderIterator UnprocessedOrderIterator, logger util.Logger) Worker {
 	return &worker{orderProcessor: orderProcessor, unprocessedOrderIterator: orderIterator, logger: logger}
 }
 
