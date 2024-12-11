@@ -99,7 +99,7 @@ func (s *orderStorageInMemory) SetProcessed(ctx context.Context, orderId OrderId
 		}
 	}
 
-	return nil, fmt.Errorf("order not found")
+	return nil, OrderNotFoundError
 }
 
 func (s *orderStorageInMemory) GetFirstUnprocessedOrder(ctx context.Context) (*Order, error) {
