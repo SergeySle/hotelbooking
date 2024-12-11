@@ -151,7 +151,7 @@ func (oc *OrderController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	orderDto, err := oc.orderCreator.CreateOrder(r.Context(), newOrder.ToOrderData())
 	if err != nil {
-		http.Error(w, "Hotel room is not available for selected dates", http.StatusInternalServerError)
+		http.Error(w, "Can't create order", http.StatusInternalServerError)
 		return
 	}
 
