@@ -7,7 +7,7 @@
 // - провести рефакторинг кода с выделением слоев и абстракций
 // - применить best-practices там где это имеет смысл
 // - исправить имеющиеся в реализации логические и технические ошибки и неточности
-package cmd
+package main
 
 import (
 	"applicationDesignTest/availability"
@@ -40,7 +40,7 @@ type Order struct {
 
 func main() {
 	ctx := context.Background()
-	logger := util.NewLogger()
+	logger := util.NewLogger(os.Stdout)
 
 	orderStorage := orders.NewOrderStorage(make([]*orders.Order, InitialOrderCapacity))
 	orderCreator := orders.NewOrderCreator(orderStorage)
@@ -73,7 +73,7 @@ func main() {
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go worker.ProcessOrders(ctx, wg)
+	go worker.Work(ctx, wg)
 	wg.Wait()
 }
 

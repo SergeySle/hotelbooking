@@ -37,7 +37,7 @@ func (uoi *unprocessedOrderIterator) GetNextUnprocessedBooking(ctx context.Conte
 }
 
 type Worker interface {
-	ProcessOrders(ctx context.Context, wg *sync.WaitGroup) error
+	Work(ctx context.Context, wg *sync.WaitGroup) error
 }
 
 type worker struct {
@@ -49,7 +49,7 @@ func NewWorker(orderProcessor OrderProcessor, orderIterator UnprocessedOrderIter
 	return &worker{orderProcessor: orderProcessor, unprocessedOrderIterator: orderIterator}
 }
 
-func (op *worker) ProcessOrders(ctx context.Context, wg *sync.WaitGroup) error {
+func (op *worker) Work(ctx context.Context, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	for {
 		select {

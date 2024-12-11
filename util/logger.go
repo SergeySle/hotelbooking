@@ -14,8 +14,8 @@ type Logger interface {
 	Log(level LogLevel, msg string, vars ...LogEnv)
 }
 
-func NewLogger() Logger {
-	return &logger{}
+func NewLogger(w io.Writer) Logger {
+	return &logger{w}
 }
 
 type LogEnv struct {
