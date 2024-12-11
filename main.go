@@ -54,6 +54,14 @@ func NewOrder(order *orders.Order) *Order {
 	}
 }
 
+var availabilityData = []availability.RoomAvailability{
+	{"reddison", "lux", date(2024, 1, 1), 1},
+	{"reddison", "lux", date(2024, 1, 2), 1},
+	{"reddison", "lux", date(2024, 1, 3), 1},
+	{"reddison", "lux", date(2024, 1, 4), 1},
+	{"reddison", "lux", date(2024, 1, 5), 0},
+}
+
 func main() {
 	ctx := context.Background()
 	logger := util.NewLogger(log.Default())
@@ -75,13 +83,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	var availabilityData = []availability.RoomAvailability{
-		{"reddison", "lux", date(2024, 1, 1), 1},
-		{"reddison", "lux", date(2024, 1, 2), 1},
-		{"reddison", "lux", date(2024, 1, 3), 1},
-		{"reddison", "lux", date(2024, 1, 4), 1},
-		{"reddison", "lux", date(2024, 1, 5), 0},
-	}
 	availabilityManager := availability.NewAvailabilityManagerInMemory(availabilityData, logger)
 	roomBooker := book.NewRoomBooker(availabilityManager)
 	unprocessedOrderIterator := worker.NewUnprocessedOrderIterator(orderStorage)
