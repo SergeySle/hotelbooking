@@ -24,16 +24,21 @@ func NewUnprocessedOrderIterator(orderStorage orders.FirstUnprocessedOrderProvid
 
 func (uoi *unprocessedOrderIterator) GetNextUnprocessedBooking(ctx context.Context) (*orders.Order, error) {
 	for {
-		order, err := uoi.orderStorage.GetFirstUnprocessedOrder(ctx)
-		if errors.Is(err, orders.OrderNotFoundError) {
-			time.Sleep(time.Second)
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			order, err := uoi.orderStorage.GetFirstUnprocessedOrder(ctx)
+			if errors.Is(err, orders.OrderNotFoundError) {
+				time.Sleep(time.Second)
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
 
-		return order, nil
+			return order, nil
+		}
 	}
 }
 
