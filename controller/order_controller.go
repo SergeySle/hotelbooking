@@ -22,13 +22,13 @@ func NewOrderController(orderCreator orders.OrderCreator, orderProvider orders.O
 func (oc *OrderController) GetOrder(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Can't extract id: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	orderDto, err := oc.orderProvider.GetById(r.Context(), orders.OrderId(id))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("can't get order by id: %w", err), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("Can't get order by id: %v", err), http.StatusNotFound)
 		return
 	}
 
@@ -44,7 +44,7 @@ func (oc *OrderController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	orderDto, err := oc.orderCreator.CreateOrder(r.Context(), newOrder.ToOrderData())
 	if err != nil {
-		http.Error(w, "Can't create order", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Can't create order: %v", err), http.StatusInternalServerError)
 		return
 	}
 
