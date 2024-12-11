@@ -12,65 +12,23 @@ package main
 import (
 	"applicationDesignTest/availability"
 	"applicationDesignTest/book"
+	"applicationDesignTest/controller"
 	"applicationDesignTest/orders"
+	"applicationDesignTest/routing"
 	"applicationDesignTest/util"
 	"applicationDesignTest/worker"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 )
 
 const InitialOrderCapacity = 1000
-
-type Order struct {
-	ID        uint      `json:"id"`
-	HotelID   string    `json:"hotel_id"`
-	RoomID    string    `json:"room_id"`
-	UserEmail string    `json:"email"`
-	From      time.Time `json:"from"`
-	To        time.Time `json:"to"`
-	Processed bool      `json:"processed"`
-	Success   bool      `json:"success"`
-}
-
-func NewOrder(order *orders.Order) *Order {
-	return &Order{
-		ID:        uint(order.ID),
-		HotelID:   string(order.HotelID),
-		RoomID:    string(order.RoomID),
-		UserEmail: order.UserEmail,
-		From:      order.From,
-		To:        order.To,
-		Processed: order.Processed,
-		Success:   order.Success,
-	}
-}
-
-type OrderRequest struct {
-	HotelID   availability.HotelId `json:"hotel_id"`
-	RoomID    availability.RoomId  `json:"room_id"`
-	UserEmail string               `json:"email"`
-	From      time.Time            `json:"from"`
-	To        time.Time            `json:"to"`
-}
-
-func (o OrderRequest) ToOrderData() *orders.OrderData {
-	return &orders.OrderData{
-		HotelID:   o.HotelID,
-		RoomID:    o.RoomID,
-		UserEmail: o.UserEmail,
-		From:      o.From,
-		To:        o.To,
-	}
-}
 
 var availabilityData = []availability.RoomAvailability{
 	{"reddison", "lux", date(2024, 1, 1), 1},
@@ -86,11 +44,11 @@ func main() {
 
 	orderStorage := orders.NewOrderStorage(make([]*orders.Order, 0, InitialOrderCapacity))
 	orderCreator := orders.NewOrderCreator(orderStorage)
-	orderController := NewOrderController(orderCreator, orderStorage)
+	orderController := controller.NewOrderController(orderCreator, orderStorage)
 
+	router := routing.NewRouting(orderController)
 	r := chi.NewRouter()
-	r.Post("/orders", orderController.CreateOrder)
-	r.Get("/orders/{id}", orderController.GetOrder)
+	router.Route(r)
 
 	availabilityManager := availability.NewAvailabilityManagerInMemory(availabilityData, logger)
 	roomBooker := book.NewRoomBooker(availabilityManager, logger)
@@ -115,51 +73,6 @@ func main() {
 		}
 	}()
 	wg.Wait()
-}
-
-type OrderController struct {
-	orderCreator  orders.OrderCreator
-	orderProvider orders.OrderProvider
-}
-
-func NewOrderController(orderCreator orders.OrderCreator, orderProvider orders.OrderProvider) *OrderController {
-	return &OrderController{orderCreator, orderProvider}
-}
-
-func (oc *OrderController) GetOrder(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(chi.URLParam(r, "id"))
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	orderDto, err := oc.orderProvider.GetById(r.Context(), orders.OrderId(id))
-	if err != nil {
-		http.Error(w, fmt.Sprintf("can't get order by id: %w", err), http.StatusNotFound)
-		return
-	}
-
-	order := NewOrder(orderDto)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(order)
-}
-
-func (oc *OrderController) CreateOrder(w http.ResponseWriter, r *http.Request) {
-	var newOrder OrderRequest
-	json.NewDecoder(r.Body).Decode(&newOrder)
-
-	orderDto, err := oc.orderCreator.CreateOrder(r.Context(), newOrder.ToOrderData())
-	if err != nil {
-		http.Error(w, "Can't create order", http.StatusInternalServerError)
-		return
-	}
-
-	order := NewOrder(orderDto)
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(order)
 }
 
 func date(year, month, day int) time.Time {

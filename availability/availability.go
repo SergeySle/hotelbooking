@@ -20,14 +20,14 @@ type RoomAvailability struct {
 }
 
 type BookingRequest struct {
-	BookId    BookingId
+	BookingId BookingId
 	HotelId   HotelId
 	RoomId    RoomId
 	DateRange []time.Time
 }
 
 func (b BookingRequest) Validate() error {
-	if b.BookId == 0 {
+	if b.BookingId == 0 {
 		return errors.New("BookingId is required")
 	}
 
@@ -139,7 +139,7 @@ func (ami *availabilityManagerInMemory) UpdateAvailability(request BookingReques
 		if !found {
 			return errors.New("No availability data found")
 		}
-		availabilityData.BookIds.Add(request.BookId)
+		availabilityData.BookIds.Add(request.BookingId)
 
 		ami.availabilityStorage[slot] = availabilityData
 	}
